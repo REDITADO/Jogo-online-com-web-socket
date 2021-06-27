@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game</title>
+    <style>
+       body {
+                margin: 40px 0 0 0;
+                padding: 0;
+                background-color: #EEE;
+                text-align: center;
+            }
+
+            #screen {
+                border: 1px solid #CCC;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+                image-rendering: -moz-crisp-edges;
+                width: 400px;
+                height: 400px;
+                -webkit-box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                -moz-box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                margin-bottom: 20px;
+                margin-left: 20px;
+                margin-right: 20px;
+                display: inline-block;
+                vertical-align: top;
+            }
+
+            #score-table {
+                font-size: 13px;
+                vertical-align: top;
+                display: inline-block;
+                font-family: Arial, Helvetica, sans-serif
+            }
+
+            #score-table tr.header td {
+                border-bottom: 1px solid #CCC;
+                padding-bottom: 8px;
+            }
+
+            #score-table tr.footer td {
+                border-top: 1px solid #CCC;
+                font-size: 11px;
+            }
+
+            #score-table td {
+                padding-top: 5px;
+                padding-bottom: 5px;
+            }
+
+            #score-table .socket-id {
+                font-weight: normal;
+                color: #222;
+                width: 150px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: inline-block
+            }
+
+            #score-table .score-value {
+                font-weight: bold;
+                color: #000;
+                text-align: right;
+            }
+
+            #score-table .current-player .socket-id,
+            #score-table .current-player .score-value {
+                color: #bdaa27;
+            }
+            .current-player{
+                color: #bdaa27;
+            }
+    </style>
+</head>
+<body>
+<canvas id="screen" height="10px" width="10px"></canvas>
+<script src="/socket.io/socket.io.js"></script>
+<table id="score-table"></table>
+<p id="playerEliminited"></p>
+<p id="leftPlayer"></p>
+<p id="addPlayer"></p>
+<script type="module">
+    import renderScreen from './render.js'
+    import createKeyboarListenner from './keyBoard-Listenner.js'
+    import createGame from "./create-game.js";
+    
+   
+
+    const playersEliminited = document.querySelector('#playerEliminited')
+    const playersLeft = document.querySelector('#leftPlayer')
+    const playerAdd = document.querySelector('#addPlayer')
+    const color = 'red'
+    const positionX = 0
+    const positiony = 0
+    const game = new createGame()
+    
+    
+    const keyBoard = new createKeyboarListenner()
+    
+    
+    
+    
+    const socket = io()
+    
+  
+    
+    socket.on('connect',_=>{
+        const playerId = socket.id 
+        const screen = document.getElementById("screen")
+        const scoreTable = document.getElementById("score-table")
+
+        renderScreen(screen,game,requestAnimationFrame, playerId ,scoreTable)
+    })
+    socket.on('setup', state=>{
+        const playerId = socket.id
+        console.log(socket.id)
+        game.setState(state)
+        keyBoard.registerPlayer(playerId)
+        keyBoard.subscribe(game.movePlayer)
+        keyBoard.subscribe(command=>{
+            
+            socket.emit('move-player',command)
+        })
+        
+        
+    })
+    socket.on('add-player',command=>{
+        game.addPlayers(command)
+        playerAdd.innerText = 'player: '+command.playerId+' enter in the game'
+        setTimeout(()=>{
+            playerAdd.innerText = ''
+        }, 3000)
+    })
+    socket.on('add-fruit',command=>{
+        game.addfruits(command)
+    })
+    socket.on('remove-player',command=>{
+        console.log(command.playerId,'player removed')
+        //alert('player: '+command.playerId+' lose the game')
+        playersEliminited.innerText = 'player: '+command.playerId+' was eliminited for '+command.enemyId
+        setTimeout(()=>{
+            playersEliminited.innerText = ''
+        }, 3000)
+        game.removePlayers(command)
+    })
+    socket.on('player-left',command=>{
+        console.log(command.playerId,'player removed')
+        //alert('player: '+command.playerId+' lose the game')
+        playersLeft.innerText = 'player: '+command.playerId+' left the game'
+        setTimeout(()=>{
+            playersLeft.innerText = ''
+        }, 3000)
+        game.removePlayers(command)
+    })
+    socket.on('remove-fruit',command=>{
+        console.log(`remove fruit with`, command.fruitId)
+
+        for(const id in game.state.players){
+            const player = game.state.players[id]
+            if(player.score>0 && player.score<100){
+
+                new Audio('./ponto.mp3').play()
+                
+            }
+            console.log(player.score)
+            if(player.score%100==0 &&player.score !== 0){
+                console.log(player.score == 10)
+                new Audio('./pontuação100.mp3').play()
+            }else{
+                new Audio('./ponto.mp3').play()
+            }
+        }
+    
+        game.removeFruits(command)
+    })
+    socket.on('move-player',command=>{
+        const playerId = socket.id
+        
+        
+        if(playerId !==command.playerId){
+            game.movePlayer(command)
+        }
+        
+      
+    })
+</script>
+</body>
+</html>
